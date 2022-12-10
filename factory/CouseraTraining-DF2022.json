@@ -1,0 +1,9 @@
+{
+	"name": "CouseraTraining-DF2022",
+	"location": "centralus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "4c874589-d8a5-47b2-bb45-7cad39ef183b",
+		"tenantId": "43fd2601-a010-4886-859a-ed93774d06a9"
+	}
+}
