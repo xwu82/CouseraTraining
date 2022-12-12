@@ -1,0 +1,107 @@
+{
+	"name": "dataflow_filterandsort",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "customer",
+						"type": "DatasetReference"
+					},
+					"name": "customer"
+				},
+				{
+					"dataset": {
+						"referenceName": "order",
+						"type": "DatasetReference"
+					},
+					"name": "order"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "cousera_output",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "join1"
+				},
+				{
+					"name": "select1"
+				},
+				{
+					"name": "filtercustomerbyage"
+				},
+				{
+					"name": "sort1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          CUSTOMER_ID as integer,",
+				"          FIRST_NAME as string,",
+				"          LAST_NAME as string,",
+				"          AGE as integer,",
+				"          GENDER as string,",
+				"          ADDRESS as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> customer",
+				"source(output(",
+				"          CUSTOMER_ID as integer,",
+				"          ORDER_ID as integer,",
+				"          AMOUNT as integer,",
+				"          ORDER_DATE as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> order",
+				"customer derive({FULL NAME} = FIRST_NAME+ \" \"+LAST_NAME) ~> derivedColumn1",
+				"derivedColumn1, order join(customer@CUSTOMER_ID == order@CUSTOMER_ID,",
+				"     joinType:'inner',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join1",
+				"join1 select(mapColumn(",
+				"          CUSTOMER_ID = customer@CUSTOMER_ID,",
+				"          {FULL NAME},",
+				"          AGE,",
+				"          GENDER,",
+				"          ADDRESS,",
+				"          ORDER_ID,",
+				"          AMOUNT,",
+				"          ORDER_DATE",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"select1 filter(AGE > 25) ~> filtercustomerbyage",
+				"filtercustomerbyage sort(desc(ORDER_DATE, true),",
+				"     partitionBy('hash', 1)) ~> sort1",
+				"sort1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          CUSTOMER_ID as string,",
+				"          FIRST_NAME as string,",
+				"          LAST_NAME as string,",
+				"          AGE as string,",
+				"          GENDER as string,",
+				"          ADDRESS as string",
+				"     ),",
+				"     partitionFileNames:['filterandsort.csv'],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> sink1"
+			]
+		}
+	}
+}
