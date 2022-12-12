@@ -1,5 +1,5 @@
 {
-	"name": "dataflow_join",
+	"name": "dataflow_conditional_split",
 	"properties": {
 		"type": "MappingDataFlow",
 		"typeProperties": {
@@ -26,14 +26,27 @@
 						"type": "DatasetReference"
 					},
 					"name": "sink1"
+				},
+				{
+					"dataset": {
+						"referenceName": "cousera_output",
+						"type": "DatasetReference"
+					},
+					"name": "sink2"
 				}
 			],
 			"transformations": [
+				{
+					"name": "derivedColumn1"
+				},
 				{
 					"name": "join1"
 				},
 				{
 					"name": "select1"
+				},
+				{
+					"name": "split1"
 				}
 			],
 			"scriptLines": [
@@ -49,23 +62,25 @@
 				"     validateSchema: false,",
 				"     ignoreNoFilesFound: false) ~> customer",
 				"source(output(",
-				"          CUSTOMER_ID as string,",
-				"          ORDER_ID as string,",
-				"          AMOUNT as string,",
-				"          ORDER_DATE as string",
+				"          CUSTOMER_ID as integer,",
+				"          ORDER_ID as integer,",
+				"          AMOUNT as integer,",
+				"          ORDER_DATE as date",
 				"     ),",
 				"     allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     ignoreNoFilesFound: false) ~> order",
-				"customer, order join(customer@CUSTOMER_ID == order@CUSTOMER_ID,",
+				"customer derive({FULL NAME} = FIRST_NAME+ \" \"+LAST_NAME) ~> derivedColumn1",
+				"derivedColumn1, order join(customer@CUSTOMER_ID == order@CUSTOMER_ID,",
 				"     joinType:'inner',",
 				"     matchType:'exact',",
 				"     ignoreSpaces: false,",
 				"     broadcast: 'auto')~> join1",
 				"join1 select(mapColumn(",
-				"          FIRST_NAME,",
-				"          LAST_NAME,",
+				"          CUSTOMER_ID = customer@CUSTOMER_ID,",
+				"          {FULL NAME},",
 				"          AGE,",
+				"          GENDER,",
 				"          ADDRESS,",
 				"          ORDER_ID,",
 				"          AMOUNT,",
@@ -73,7 +88,9 @@
 				"     ),",
 				"     skipDuplicateMapInputs: true,",
 				"     skipDuplicateMapOutputs: true) ~> select1",
-				"select1 sink(allowSchemaDrift: true,",
+				"select1 split(GENDER == \"Male\",",
+				"     disjoint: false) ~> split1@(malecustomers, femalecustomers)",
+				"split1@malecustomers sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     input(",
 				"          CUSTOMER_ID as string,",
@@ -83,10 +100,24 @@
 				"          GENDER as string,",
 				"          ADDRESS as string",
 				"     ),",
-				"     partitionFileNames:['join.output.csv'],",
+				"     partitionFileNames:['male_customer_data.csv'],",
 				"     skipDuplicateMapInputs: true,",
 				"     skipDuplicateMapOutputs: true,",
-				"     partitionBy('hash', 1)) ~> sink1"
+				"     partitionBy('hash', 1)) ~> sink1",
+				"split1@femalecustomers sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          CUSTOMER_ID as string,",
+				"          FIRST_NAME as string,",
+				"          LAST_NAME as string,",
+				"          AGE as string,",
+				"          GENDER as string,",
+				"          ADDRESS as string",
+				"     ),",
+				"     partitionFileNames:['female_customers_data.csv'],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> sink2"
 			]
 		}
 	}
