@@ -1,0 +1,132 @@
+{
+	"name": "simple_mapping_dataflow",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "customer",
+						"type": "DatasetReference"
+					},
+					"name": "customer"
+				},
+				{
+					"dataset": {
+						"referenceName": "order",
+						"type": "DatasetReference"
+					},
+					"name": "order"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "cousera_output",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				},
+				{
+					"dataset": {
+						"referenceName": "cousera_output",
+						"type": "DatasetReference"
+					},
+					"name": "sink2"
+				}
+			],
+			"transformations": [
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "join1"
+				},
+				{
+					"name": "select1"
+				},
+				{
+					"name": "split1"
+				},
+				{
+					"name": "sort1"
+				},
+				{
+					"name": "sort2"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          CUSTOMER_ID as integer,",
+				"          FIRST_NAME as string,",
+				"          LAST_NAME as string,",
+				"          AGE as integer,",
+				"          GENDER as string,",
+				"          ADDRESS as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> customer",
+				"source(output(",
+				"          CUSTOMER_ID as integer,",
+				"          ORDER_ID as integer,",
+				"          AMOUNT as string,",
+				"          ORDER_DATE as date",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> order",
+				"customer derive(AGE = AGE + 5) ~> derivedColumn1",
+				"derivedColumn1, order join(customer@CUSTOMER_ID == order@CUSTOMER_ID,",
+				"     joinType:'inner',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join1",
+				"join1 select(mapColumn(",
+				"          CUSTOMER_ID = customer@CUSTOMER_ID,",
+				"          FIRST_NAME,",
+				"          AGE,",
+				"          ADDRESS,",
+				"          ORDER_ID,",
+				"          AMOUNT,",
+				"          ORDER_DATE",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"select1 split(AGE < 35,",
+				"     disjoint: false) ~> split1@(agebelow35, ageaboveorequals35)",
+				"split1@agebelow35 sort(asc(AGE, true)) ~> sort1",
+				"split1@ageaboveorequals35 sort(desc(AGE, true),",
+				"     partitionBy('hash', 1)) ~> sort2",
+				"sort1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          CUSTOMER_ID as string,",
+				"          FIRST_NAME as string,",
+				"          LAST_NAME as string,",
+				"          AGE as string,",
+				"          GENDER as string,",
+				"          ADDRESS as string",
+				"     ),",
+				"     partitionFileNames:['customers_below_35.csv'],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> sink1",
+				"sort2 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          CUSTOMER_ID as string,",
+				"          FIRST_NAME as string,",
+				"          LAST_NAME as string,",
+				"          AGE as string,",
+				"          GENDER as string,",
+				"          ADDRESS as string",
+				"     ),",
+				"     partitionFileNames:['customers_above_35'],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> sink2"
+			]
+		}
+	}
+}
